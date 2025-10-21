@@ -1,0 +1,38 @@
+# Ignore unnecessary files from NPM package
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env*
+
+# Source and tests
+src/
+tests/
+specs/
+
+# Config files
+.eslintignore
+.eslintrc.json
+.prettierignore
+.prettierrc.json
+tsconfig.json
+bun.lock
+.gitignore
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/

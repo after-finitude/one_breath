@@ -1,0 +1,26 @@
+# Node.js
+node_modules/
+dist/
+build/
+*.log
+.env*
+
+# TypeScript
+*.tsbuildinfo
+
+# IDEs
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Bun
+bun.lockb
+
+# Coverage
+coverage/
+
+# SQLite Database
+data/

@@ -1,0 +1,297 @@
+import { MAX_THOUGHT_LENGTH } from "../../config/constants";
+import type { Entry } from "../../types/entry";
+import type { DailyEntriesStore } from "./types";
+
+const STORAGE_KEY = "one-breath::entries::v1";
+const STORAGE_TEST_KEY = "__one-breath-storage-test__";
+
+type StoredState = {
+	entries: Entry[];
+};
+
+const memoryState: StoredState = {
+	entries: [],
+};
+
+const defaultState = (): StoredState => ({
+	entries: [],
+});
+
+const cloneEntry = (entry: Entry): Entry => ({
+	id: entry.id,
+	ymd: entry.ymd,
+	content: entry.content,
+	createdAt: entry.createdAt,
+	replacedAt: entry.replacedAt ?? null,
+});
+
+const cloneEntries = (entries: Entry[]): Entry[] => {
+	return entries.map((entry) => cloneEntry(entry));
+};
+
+const isValidEntry = (value: unknown): value is Entry => {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+
+	const record = value as Record<string, unknown>;
+
+	return (
+		typeof record.id === "string" &&
+		typeof record.ymd === "string" &&
+		typeof record.content === "string" &&
+		typeof record.createdAt === "string" &&
+		(record.replacedAt === undefined ||
+			record.replacedAt === null ||
+			typeof record.replacedAt === "string")
+	);
+};
+
+let cachedStorage: Storage | null | undefined;
+
+const getBrowserStorage = (): Storage | null => {
+	if (cachedStorage !== undefined) {
+		return cachedStorage;
+	}
+
+	if (typeof window === "undefined" || !("localStorage" in window)) {
+		cachedStorage = null;
+
+		return cachedStorage;
+	}
+
+	try {
+		const storage = window.localStorage;
+		storage.setItem(STORAGE_TEST_KEY, "ok");
+		storage.removeItem(STORAGE_TEST_KEY);
+		cachedStorage = storage;
+	} catch {
+		cachedStorage = null;
+	}
+
+	return cachedStorage;
+};
+
+const readState = (): StoredState => {
+	const storage = getBrowserStorage();
+
+	if (!storage) {
+		return {
+			entries: cloneEntries(memoryState.entries),
+		};
+	}
+
+	const raw = storage.getItem(STORAGE_KEY);
+
+	if (!raw) {
+		memoryState.entries = [];
+
+		return defaultState();
+	}
+
+	try {
+		const parsed = JSON.parse(raw) as { entries?: unknown };
+
+		if (!Array.isArray(parsed.entries)) {
+			memoryState.entries = [];
+
+			return defaultState();
+		}
+
+		const normalized: Entry[] = [];
+
+		for (const value of parsed.entries) {
+			if (!isValidEntry(value)) {
+				continue;
+			}
+
+			normalized.push(cloneEntry(value));
+		}
+
+		memoryState.entries = cloneEntries(normalized);
+
+		return { entries: normalized };
+	} catch {
+		memoryState.entries = [];
+
+		return defaultState();
+	}
+};
+
+const writeState = (next: StoredState) => {
+	memoryState.entries = cloneEntries(next.entries);
+
+	const storage = getBrowserStorage();
+
+	if (!storage) {
+		return;
+	}
+
+	try {
+		const payload = JSON.stringify({
+			entries: next.entries.map((entry) => ({
+				...entry,
+				replacedAt: entry.replacedAt ?? null,
+			})),
+		});
+		storage.setItem(STORAGE_KEY, payload);
+	} catch {
+		// Ignore quota and serialization errors to keep the UI responsive.
+	}
+};
+
+const sortEntriesForList = (entries: Entry[]): Entry[] => {
+	return [...entries].sort((a, b) => {
+		const ymdComparison = b.ymd.localeCompare(a.ymd);
+
+		if (ymdComparison !== 0) {
+			return ymdComparison;
+		}
+
+		return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+	});
+};
+
+const sortEntriesChronologically = (entries: Entry[]): Entry[] => {
+	return [...entries].sort(
+		(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+	);
+};
+
+const generateId = (): string => {
+	return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
+const validateEntry = (entry: Omit<Entry, "id">): void => {
+	if (!entry.content || typeof entry.content !== "string") {
+		throw new Error("Entry content must be a non-empty string");
+	}
+
+	if (entry.content.length > MAX_THOUGHT_LENGTH) {
+		throw new Error(
+			`Entry content exceeds maximum length of ${MAX_THOUGHT_LENGTH} characters`,
+		);
+	}
+
+	if (!entry.ymd || !/^\d{4}-\d{2}-\d{2}$/.test(entry.ymd)) {
+		throw new Error("Entry ymd must be in YYYY-MM-DD format");
+	}
+
+	if (!entry.createdAt) {
+		throw new Error("Entry createdAt is required");
+	}
+};
+
+const storage: DailyEntriesStore = {
+	async get(ymd) {
+		const { entries } = readState();
+		const activeEntries = entries.filter(
+			(entry) => entry.ymd === ymd && !entry.replacedAt,
+		);
+
+		if (activeEntries.length === 0) {
+			return null;
+		}
+
+		const [latest] = sortEntriesForList(activeEntries);
+
+		return latest ? cloneEntry(latest) : null;
+	},
+
+	async put(entry) {
+		validateEntry(entry);
+
+		const state = readState();
+		const newEntry: Entry = {
+			id: generateId(),
+			...entry,
+			replacedAt: null,
+		};
+
+		writeState({
+			entries: [...state.entries, newEntry],
+		});
+
+		return cloneEntry(newEntry);
+	},
+
+	async replace(entry) {
+		validateEntry(entry);
+
+		const state = readState();
+		const now = new Date().toISOString();
+
+		const updatedEntries = state.entries.map((existing) => {
+			if (existing.ymd !== entry.ymd || existing.replacedAt) {
+				return existing;
+			}
+
+			return {
+				...existing,
+				replacedAt: now,
+			};
+		});
+
+		const newEntry: Entry = {
+			id: generateId(),
+			...entry,
+			replacedAt: null,
+		};
+
+		writeState({
+			entries: [...updatedEntries, newEntry],
+		});
+
+		return cloneEntry(newEntry);
+	},
+
+	async getAll() {
+		const { entries } = readState();
+
+		return sortEntriesForList(entries).map((entry) => cloneEntry(entry));
+	},
+
+	admin: {
+		async readRecord(ymd) {
+			const { entries } = readState();
+			const matches = entries.filter((entry) => entry.ymd === ymd);
+
+			if (matches.length === 0) {
+				return null;
+			}
+
+			return {
+				ymd,
+				entries: sortEntriesChronologically(matches).map((entry) =>
+					cloneEntry(entry),
+				),
+			};
+		},
+
+		async writeRecord(record) {
+			const state = readState();
+			const preserved = state.entries.filter(
+				(entry) => entry.ymd !== record.ymd,
+			);
+			const normalized = record.entries.map((entry) => cloneEntry(entry));
+
+			writeState({
+				entries: [...preserved, ...normalized],
+			});
+		},
+
+		async deleteRecord(ymd) {
+			const state = readState();
+			const remaining = state.entries.filter((entry) => entry.ymd !== ymd);
+
+			writeState({ entries: remaining });
+		},
+
+		async clear() {
+			writeState(defaultState());
+		},
+	},
+};
+
+export { storage };
+export type { DailyEntries, DailyEntriesStore, IStorage } from "./types";

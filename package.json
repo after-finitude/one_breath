@@ -1,0 +1,29 @@
+{
+  "name": "one_breath",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run build && bun scripts/preview.ts",
+    "build": "bun scripts/build-static.ts",
+    "preview": "bun scripts/preview.ts",
+    "check": "tsc --noEmit && bunx biome check --write .",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2",
+    "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1",
+    "playwright": "^1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "preact": "^10",
+    "tailwind-merge": "^3",
+    "wouter-preact": "^3"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "packageManager": "bun@1"
+}
