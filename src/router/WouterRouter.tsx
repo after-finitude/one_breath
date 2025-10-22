@@ -1,4 +1,5 @@
 import { Route, Router, Switch } from "wouter-preact";
+import { useHashLocation } from "wouter-preact/use-hash-location";
 import { Export } from "../pages/Export";
 import { History } from "../pages/History";
 import { NotFoundPage } from "../pages/NotFoundPage";
@@ -6,7 +7,7 @@ import { Today } from "../pages/Today";
 
 export const WouterRouter = () => {
 	return (
-		<Router>
+		<Router hook={useHashLocation}>
 			<Switch>
 				<Route path="/">
 					<Today />
