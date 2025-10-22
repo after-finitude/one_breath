@@ -7,7 +7,7 @@ import { Today } from "../pages/Today";
 
 export const WouterRouter = () => {
 	return (
-		<Router hook={useHashLocation}>
+		<Router hook={useHashLocation} hrefs={useHashLocation.hrefs}>
 			<Switch>
 				<Route path="/">
 					<Today />
