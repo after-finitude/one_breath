@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { logError, normalizeError } from "../lib/errors";
+import { withRetry } from "../lib/retry";
 import { storage } from "../lib/storage";
 import type { Entry } from "../types/entry";
 
@@ -58,8 +59,10 @@ const loadEntries = async (force = false): Promise<Entry[]> => {
 
 	setState({ loading: true, error: null });
 
-	activeRequest = storage
-		.getAll()
+	activeRequest = withRetry(() => storage.getAll(), {
+		maxAttempts: 3,
+		initialDelay: 100,
+	})
 		.then((entries) => {
 			cachedEntries = [...entries];
 			cachedError = null;
