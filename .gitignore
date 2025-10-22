@@ -25,3 +25,7 @@ coverage/
 
 # SQLite Database
 data/
+
+# AI
+ai/
+CLAUDE.md
