@@ -3,6 +3,7 @@ import {
 	type Language,
 	SUPPORTED_LANGUAGES,
 } from "../config/constants";
+import { storageAdapter } from "../lib/storageAdapter";
 import en from "./en.json";
 import type { TranslationKey, TranslationMap } from "./keys";
 import ru from "./ru.json";
@@ -21,14 +22,10 @@ const isValidLanguage = (value: string): value is Language => {
 };
 
 const getSavedLanguage = (): Language | null => {
-	try {
-		const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+	const saved = storageAdapter.get<string>(LANGUAGE_STORAGE_KEY);
 
-		if (saved && isValidLanguage(saved)) {
-			return saved;
-		}
-	} catch {
-		// Silently ignore storage errors (e.g., private browsing)
+	if (saved && isValidLanguage(saved)) {
+		return saved;
 	}
 
 	return null;
@@ -45,11 +42,7 @@ export const setLanguage = (lang: Language) => {
 	if (currentLang !== lang) {
 		currentLang = lang;
 
-		try {
-			localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
-		} catch {
-			// Silently ignore storage errors (e.g., quota exceeded, private browsing)
-		}
+		storageAdapter.set(LANGUAGE_STORAGE_KEY, lang);
 
 		listeners.forEach((listener) => {
 			listener();

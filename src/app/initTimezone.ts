@@ -1,5 +1,6 @@
 import { setTimezone } from "../lib/date";
 import { logError } from "../lib/errors";
+import { storageAdapter } from "../lib/storageAdapter";
 
 const TIMEZONE_STORAGE_KEY = "one_breath_timezone";
 
@@ -15,28 +16,24 @@ const isValidTimezone = (tz: string): boolean => {
 };
 
 const readStoredTimezone = (): string | null => {
-	try {
-		const stored = localStorage.getItem(TIMEZONE_STORAGE_KEY);
-		if (stored && isValidTimezone(stored)) {
-			return stored;
-		}
-	} catch (error) {
-		logError("Failed to read stored timezone preference", error, {
-			component: "initTimezone",
-			action: "read",
-		});
+	const stored = storageAdapter.get<string>(TIMEZONE_STORAGE_KEY);
+	if (stored && isValidTimezone(stored)) {
+		return stored;
 	}
 	return null;
 };
 
 const writeStoredTimezone = (tz: string): void => {
-	try {
-		localStorage.setItem(TIMEZONE_STORAGE_KEY, tz);
-	} catch (error) {
-		logError("Failed to persist timezone preference", error, {
-			component: "initTimezone",
-			action: "write",
-		});
+	const success = storageAdapter.set(TIMEZONE_STORAGE_KEY, tz);
+	if (!success) {
+		logError(
+			"Failed to persist timezone preference",
+			new Error("Storage unavailable"),
+			{
+				component: "initTimezone",
+				action: "write",
+			},
+		);
 	}
 };
 
@@ -71,13 +68,5 @@ export const setPreferredTimezone = (tz: string): void => {
 
 export const clearPreferredTimezone = (): void => {
 	activeTimezone = null;
-
-	try {
-		localStorage.removeItem(TIMEZONE_STORAGE_KEY);
-	} catch (error) {
-		logError("Failed to clear timezone preference", error, {
-			component: "initTimezone",
-			action: "clear",
-		});
-	}
+	storageAdapter.remove(TIMEZONE_STORAGE_KEY);
 };
