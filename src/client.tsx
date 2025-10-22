@@ -1,5 +1,4 @@
 import { render } from "preact";
-import { Layout } from "./app/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppProviders } from "./context";
 import { logError } from "./lib/errors";
@@ -9,9 +8,7 @@ function App() {
 	return (
 		<ErrorBoundary>
 			<AppProviders>
-				<Layout>
-					<WouterRouter />
-				</Layout>
+				<WouterRouter />
 			</AppProviders>
 		</ErrorBoundary>
 	);
