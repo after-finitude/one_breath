@@ -16,6 +16,11 @@ const HistoryEntry: FunctionalComponent<HistoryEntryProps> = ({
 	entry,
 	onClick,
 }) => {
+	const preview =
+		entry.content.length > PREVIEW_LENGTH
+			? `${entry.content.slice(0, PREVIEW_LENGTH).trimEnd()}…`
+			: entry.content;
+
 	return (
 		<button
 			type="button"
@@ -24,9 +29,7 @@ const HistoryEntry: FunctionalComponent<HistoryEntryProps> = ({
 		>
 			<div className="space-y-1">
 				<div className="text-sm font-bold text-black">{entry.ymd}</div>
-				<div className="line-clamp-2 text-sm text-gray-600">
-					{entry.content.substring(0, PREVIEW_LENGTH)}...
-				</div>
+				<div className="line-clamp-2 text-sm text-gray-600">{preview}</div>
 			</div>
 		</button>
 	);
@@ -41,9 +44,7 @@ export const History = (): JSX.Element => {
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	const activeEntries = useMemo(() => {
-		return entries
-			.filter((entry) => !entry.replacedAt)
-			.sort((a, b) => new Date(b.ymd).getTime() - new Date(a.ymd).getTime());
+		return entries.filter((entry) => !entry.replacedAt);
 	}, [entries]);
 
 	useEffect(() => {

@@ -1,4 +1,4 @@
-import type { JSX } from "preact";
+import type { ComponentProps } from "preact";
 import { cn } from "@/lib/utils";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
@@ -13,7 +13,7 @@ const VARIANT_STYLES: Record<BadgeVariant, string> = {
 	outline: "border border-black text-black",
 };
 
-export interface BadgeProps extends JSX.HTMLAttributes<HTMLDivElement> {
+export interface BadgeProps extends ComponentProps<"div"> {
 	variant?: BadgeVariant;
 }
 

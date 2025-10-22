@@ -1,10 +1,11 @@
-import type { JSX } from "preact";
+import type { ComponentProps, TargetedEvent } from "preact";
 import { forwardRef } from "preact/compat";
 import { cn } from "@/lib/utils";
 
-export interface TextareaProps extends JSX.HTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps
+	extends Omit<ComponentProps<"textarea">, "onInput"> {
 	value?: string;
-	onInput?: (event: Event) => void;
+	onInput?: (event: TargetedEvent<HTMLTextAreaElement, Event>) => void;
 	maxLength?: number;
 	placeholder?: string;
 }

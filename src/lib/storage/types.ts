@@ -1,4 +1,5 @@
 import type { Entry } from "../../types/entry";
+import type { RetryOptions } from "../retry";
 
 export type DailyEntries = {
 	ymd: string;
@@ -10,6 +11,7 @@ export interface IStorage {
 	put(entry: Omit<Entry, "id">): Promise<Entry>;
 	replace(entry: Omit<Entry, "id">): Promise<Entry>;
 	getAll(): Promise<Entry[]>;
+	getAllWithRetry(options?: RetryOptions): Promise<Entry[]>;
 }
 
 export type DailyEntriesStore = IStorage & {

@@ -10,15 +10,18 @@ import {
 import type { Language } from "../config/constants";
 import {
 	getCurrentLanguage,
+	getTranslation,
 	hasSavedLanguage,
-	setLanguage as persistLanguage,
+	setLanguage as setGlobalLanguage,
 	subscribeToLanguageChange,
 } from "../i18n";
+import type { TranslationKey } from "../i18n/keys";
 
 type LanguageContextValue = {
 	language: Language;
 	setLanguage: (language: Language) => void;
 	toggleLanguage: () => void;
+	t: (key: TranslationKey) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(
@@ -38,7 +41,7 @@ export function LanguageProvider({
 				typeof navigator !== "undefined" && navigator.language.startsWith("ru")
 					? "ru"
 					: "en";
-			persistLanguage(browserLang);
+			setGlobalLanguage(browserLang);
 			setLanguageState(browserLang);
 		}
 
@@ -50,7 +53,7 @@ export function LanguageProvider({
 	}, []);
 
 	const setLanguage = useCallback((nextLanguage: Language) => {
-		persistLanguage(nextLanguage);
+		setGlobalLanguage(nextLanguage);
 		setLanguageState(nextLanguage);
 	}, []);
 
@@ -58,13 +61,21 @@ export function LanguageProvider({
 		setLanguage(language === "en" ? "ru" : "en");
 	}, [language, setLanguage]);
 
+	const translate = useCallback(
+		(key: TranslationKey) => {
+			return getTranslation(key);
+		},
+		[language],
+	);
+
 	const value = useMemo<LanguageContextValue>(
 		() => ({
 			language,
 			setLanguage,
 			toggleLanguage,
+			t: translate,
 		}),
-		[language, setLanguage, toggleLanguage],
+		[language, setLanguage, toggleLanguage, translate],
 	);
 
 	return (

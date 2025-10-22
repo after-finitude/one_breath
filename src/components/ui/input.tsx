@@ -1,9 +1,8 @@
-import type { JSX } from "preact";
+import type { ComponentProps } from "preact";
 import { forwardRef } from "preact/compat";
 import { cn } from "@/lib/utils";
 
-export interface InputProps
-	extends Omit<JSX.HTMLAttributes<HTMLInputElement>, "size"> {
+export interface InputProps extends Omit<ComponentProps<"input">, "size"> {
 	type?: string;
 }
 

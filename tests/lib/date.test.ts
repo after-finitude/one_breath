@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
+	clearPreferredTimezone,
+	setPreferredTimezone,
+} from "../../src/app/initTimezone";
+import {
 	getLockedTimezone,
 	getTodayYMD,
 	resetLockedTimezoneForTesting,
@@ -27,5 +31,14 @@ describe("date utilities", () => {
 
 		setTimezone("America/New_York");
 		expect(getLockedTimezone()).toBe("America/New_York");
+	});
+
+	it("reverts to system timezone when user preference is removed", () => {
+		setPreferredTimezone("UTC");
+		expect(getLockedTimezone()).toBe("UTC");
+
+		clearPreferredTimezone();
+		const systemTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		expect(getLockedTimezone()).toBe(systemTz);
 	});
 });

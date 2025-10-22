@@ -1,4 +1,4 @@
-import type { JSX } from "preact";
+import type { ComponentProps } from "preact";
 import { forwardRef } from "preact/compat";
 
 import { cn } from "../../lib/utils";
@@ -31,8 +31,7 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 	icon: "h-9 w-9",
 };
 
-export interface ButtonProps
-	extends Omit<JSX.HTMLAttributes<HTMLButtonElement>, "size"> {
+export interface ButtonProps extends Omit<ComponentProps<"button">, "size"> {
 	disabled?: boolean;
 	type?: "button" | "submit" | "reset";
 	variant?: ButtonVariant;

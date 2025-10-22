@@ -1,5 +1,6 @@
 import {
 	type ComponentChildren,
+	type ComponentProps,
 	createContext,
 	type JSX,
 	type TargetedMouseEvent,
@@ -87,23 +88,22 @@ function useDialogContext(): DialogContextValue {
 	return context;
 }
 
-const DialogTrigger = forwardRef<
-	HTMLButtonElement,
-	JSX.HTMLAttributes<HTMLButtonElement>
->(({ className, children, onClick, ...props }, ref) => {
-	const { onOpenChange } = useDialogContext();
+const DialogTrigger = forwardRef<HTMLButtonElement, ComponentProps<"button">>(
+	({ className, children, onClick, ...props }, ref) => {
+		const { onOpenChange } = useDialogContext();
 
-	const handleClick = (event: TargetedMouseEvent<HTMLButtonElement>) => {
-		onClick?.(event);
-		onOpenChange(true);
-	};
+		const handleClick = (event: TargetedMouseEvent<HTMLButtonElement>) => {
+			onClick?.(event);
+			onOpenChange(true);
+		};
 
-	return (
-		<button ref={ref} className={className} onClick={handleClick} {...props}>
-			{children}
-		</button>
-	);
-});
+		return (
+			<button ref={ref} className={className} onClick={handleClick} {...props}>
+				{children}
+			</button>
+		);
+	},
+);
 DialogTrigger.displayName = "DialogTrigger";
 
 const DialogPortal = ({ children }: { children: ComponentChildren }) => {
@@ -116,19 +116,18 @@ const DialogPortal = ({ children }: { children: ComponentChildren }) => {
 	return createPortal(children, document.body);
 };
 
-const DialogOverlay = forwardRef<
-	HTMLDivElement,
-	JSX.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
-	return (
-		<div
-			ref={ref}
-			aria-hidden="true"
-			className={cn("fixed inset-0 bg-black/55", className)}
-			{...props}
-		/>
-	);
-});
+const DialogOverlay = forwardRef<HTMLDivElement, ComponentProps<"div">>(
+	({ className, ...props }, ref) => {
+		return (
+			<div
+				ref={ref}
+				aria-hidden="true"
+				className={cn("fixed inset-0 bg-black/55", className)}
+				{...props}
+			/>
+		);
+	},
+);
 DialogOverlay.displayName = "DialogOverlay";
 
 const FOCUSABLE_SELECTOR = [
@@ -171,7 +170,7 @@ const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
 	);
 };
 
-interface DialogContentProps extends JSX.HTMLAttributes<HTMLDivElement> {
+interface DialogContentProps extends ComponentProps<"div"> {
 	onClose?: (() => void) | undefined;
 }
 
@@ -321,10 +320,7 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
 );
 DialogContent.displayName = "DialogContent";
 
-const DialogHeader = ({
-	className,
-	...props
-}: JSX.HTMLAttributes<HTMLDivElement>) => (
+const DialogHeader = ({ className, ...props }: ComponentProps<"div">) => (
 	<div
 		className={cn("flex flex-col space-y-2 text-left", className)}
 		{...props}
@@ -332,10 +328,7 @@ const DialogHeader = ({
 );
 DialogHeader.displayName = "DialogHeader";
 
-const DialogFooter = ({
-	className,
-	...props
-}: JSX.HTMLAttributes<HTMLDivElement>) => (
+const DialogFooter = ({ className, ...props }: ComponentProps<"div">) => (
 	<div
 		className={cn(
 			"flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2",
@@ -346,81 +339,78 @@ const DialogFooter = ({
 );
 DialogFooter.displayName = "DialogFooter";
 
-const DialogTitle = forwardRef<
-	HTMLHeadingElement,
-	JSX.HTMLAttributes<HTMLHeadingElement>
->(({ className, id, ...props }, ref) => {
-	const { setLabelId } = useDialogContext();
-	const generatedId = useMemo(
-		() => `dialog-title-${Math.random().toString(36).slice(2, 8)}`,
-		[],
-	);
-	const resolvedId = toId(id) ?? generatedId;
+const DialogTitle = forwardRef<HTMLHeadingElement, ComponentProps<"h2">>(
+	({ className, id, ...props }, ref) => {
+		const { setLabelId } = useDialogContext();
+		const generatedId = useMemo(
+			() => `dialog-title-${Math.random().toString(36).slice(2, 8)}`,
+			[],
+		);
+		const resolvedId = toId(id) ?? generatedId;
 
-	useEffect(() => {
-		setLabelId(resolvedId);
-		return () => {
-			setLabelId(undefined);
-		};
-	}, [resolvedId, setLabelId]);
+		useEffect(() => {
+			setLabelId(resolvedId);
+			return () => {
+				setLabelId(undefined);
+			};
+		}, [resolvedId, setLabelId]);
 
-	return (
-		<h2
-			ref={ref}
-			id={resolvedId}
-			className={cn("text-xl font-bold leading-tight text-black", className)}
-			{...props}
-		/>
-	);
-});
+		return (
+			<h2
+				ref={ref}
+				id={resolvedId}
+				className={cn("text-xl font-bold leading-tight text-black", className)}
+				{...props}
+			/>
+		);
+	},
+);
 DialogTitle.displayName = "DialogTitle";
 
-const DialogDescription = forwardRef<
-	HTMLParagraphElement,
-	JSX.HTMLAttributes<HTMLParagraphElement>
->(({ className, id, ...props }, ref) => {
-	const { setDescriptionId } = useDialogContext();
-	const generatedId = useMemo(
-		() => `dialog-description-${Math.random().toString(36).slice(2, 8)}`,
-		[],
-	);
-	const resolvedId = toId(id) ?? generatedId;
+const DialogDescription = forwardRef<HTMLParagraphElement, ComponentProps<"p">>(
+	({ className, id, ...props }, ref) => {
+		const { setDescriptionId } = useDialogContext();
+		const generatedId = useMemo(
+			() => `dialog-description-${Math.random().toString(36).slice(2, 8)}`,
+			[],
+		);
+		const resolvedId = toId(id) ?? generatedId;
 
-	useEffect(() => {
-		setDescriptionId(resolvedId);
-		return () => {
-			setDescriptionId(undefined);
-		};
-	}, [resolvedId, setDescriptionId]);
+		useEffect(() => {
+			setDescriptionId(resolvedId);
+			return () => {
+				setDescriptionId(undefined);
+			};
+		}, [resolvedId, setDescriptionId]);
 
-	return (
-		<p
-			ref={ref}
-			id={resolvedId}
-			className={cn("text-sm text-gray-600", className)}
-			{...props}
-		/>
-	);
-});
+		return (
+			<p
+				ref={ref}
+				id={resolvedId}
+				className={cn("text-sm text-gray-600", className)}
+				{...props}
+			/>
+		);
+	},
+);
 DialogDescription.displayName = "DialogDescription";
 
-const DialogClose = forwardRef<
-	HTMLButtonElement,
-	JSX.HTMLAttributes<HTMLButtonElement>
->(({ className, children, onClick, ...props }, ref) => {
-	const { onOpenChange } = useDialogContext();
+const DialogClose = forwardRef<HTMLButtonElement, ComponentProps<"button">>(
+	({ className, children, onClick, ...props }, ref) => {
+		const { onOpenChange } = useDialogContext();
 
-	const handleClick = (event: TargetedMouseEvent<HTMLButtonElement>) => {
-		onClick?.(event);
-		onOpenChange(false);
-	};
+		const handleClick = (event: TargetedMouseEvent<HTMLButtonElement>) => {
+			onClick?.(event);
+			onOpenChange(false);
+		};
 
-	return (
-		<button ref={ref} className={className} onClick={handleClick} {...props}>
-			{children}
-		</button>
-	);
-});
+		return (
+			<button ref={ref} className={className} onClick={handleClick} {...props}>
+				{children}
+			</button>
+		);
+	},
+);
 DialogClose.displayName = "DialogClose";
 
 export {

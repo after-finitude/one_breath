@@ -5,10 +5,10 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "preact/hooks";
 import { logError, normalizeError } from "../lib/errors";
-import { withRetry } from "../lib/retry";
 import { storage } from "../lib/storage";
 import type { Entry } from "../types/entry";
 
@@ -27,80 +27,79 @@ export function EntriesProvider({ children }: { children: ComponentChildren }) {
 	const [entries, setEntries] = useState<Entry[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
-	const [cachedEntries, setCachedEntries] = useState<Entry[] | null>(null);
-	const [activeRequest, setActiveRequest] = useState<Promise<Entry[]> | null>(
-		null,
-	);
+	const cacheRef = useRef<Entry[] | null>(null);
+	const requestRef = useRef<Promise<Entry[]> | null>(null);
 
-	const loadEntries = useCallback(
-		async (force = false): Promise<Entry[]> => {
-			// Return cached data if available and not forcing refresh
-			if (!force) {
-				if (cachedEntries) {
-					return cachedEntries;
-				}
-
-				// Deduplicate concurrent requests - wait for the active request
-				if (activeRequest) {
-					return activeRequest;
-				}
-			} else if (activeRequest) {
-				// If forcing refresh but there's already a request in flight,
-				// wait for it to complete to avoid race conditions
-				try {
-					await activeRequest;
-				} catch {
-					// Ignore errors from the previous request
-				}
+	const loadEntries = useCallback(async (force = false): Promise<Entry[]> => {
+		// Return cached data if available and not forcing refresh
+		if (!force) {
+			if (cacheRef.current) {
+				setEntries(cacheRef.current);
+				return cacheRef.current;
 			}
 
-			setLoading(true);
-			setError(null);
+			// Deduplicate concurrent requests - wait for the active request
+			if (requestRef.current) {
+				return requestRef.current;
+			}
+		} else if (requestRef.current) {
+			// If forcing refresh but there's already a request in flight,
+			// wait for it to complete to avoid race conditions
+			try {
+				await requestRef.current;
+			} catch {
+				// Ignore errors from the previous request
+			}
+		}
 
-			const request = withRetry(() => storage.getAll(), {
+		setLoading(true);
+		setError(null);
+
+		const request = storage
+			.getAllWithRetry({
 				maxAttempts: 3,
 				initialDelay: 100,
 			})
-				.then((loadedEntries) => {
-					setCachedEntries([...loadedEntries]);
-					setEntries([...loadedEntries]);
-					setError(null);
-					setLoading(false);
+			.then((loadedEntries) => {
+				const snapshot = [...loadedEntries];
+				cacheRef.current = snapshot;
+				setEntries(snapshot);
+				setError(null);
 
-					return loadedEntries;
-				})
-				.catch((err) => {
-					const normalized = normalizeError(err, "Failed to load entries");
-					logError("Failed to load entries", normalized, {
-						component: "EntriesProvider",
-					});
-					setError(normalized);
-					setLoading(false);
-					setEntries([]);
-
-					throw normalized;
-				})
-				.finally(() => {
-					setActiveRequest(null);
+				return snapshot;
+			})
+			.catch((err) => {
+				const normalized = normalizeError(err, "Failed to load entries");
+				logError("Failed to load entries", normalized, {
+					component: "EntriesProvider",
 				});
+				setError(normalized);
+				cacheRef.current = null;
+				setEntries([]);
 
-			setActiveRequest(request);
+				throw normalized;
+			})
+			.finally(() => {
+				requestRef.current = null;
+				setLoading(false);
+			});
 
-			return request;
-		},
-		[cachedEntries, activeRequest],
-	);
+		requestRef.current = request;
+
+		return request;
+	}, []);
 
 	const refresh = useCallback(() => {
+		cacheRef.current = null;
 		return loadEntries(true);
 	}, [loadEntries]);
 
 	// Initial load
 	useEffect(() => {
-		if (!cachedEntries && !activeRequest && !loading) {
+		if (!cacheRef.current && !requestRef.current) {
 			void loadEntries();
 		}
-	}, [cachedEntries, activeRequest, loading, loadEntries]);
+	}, [loadEntries]);
 
 	const value = useMemo<EntriesContextValue>(
 		() => ({

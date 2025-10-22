@@ -1,5 +1,7 @@
 import { MAX_THOUGHT_LENGTH } from "../../config/constants";
 import type { Entry } from "../../types/entry";
+import type { RetryOptions } from "../retry";
+import { withRetry } from "../retry";
 import { CURRENT_VERSION, migrateData, type StoredState } from "./migrations";
 import type { DailyEntriesStore } from "./types";
 
@@ -11,6 +13,8 @@ const memoryState: StoredState = {
 	version: CURRENT_VERSION,
 	entries: [],
 };
+
+let stateRevision = 0;
 
 const defaultState = (): StoredState => ({
 	version: CURRENT_VERSION,
@@ -27,6 +31,54 @@ const cloneEntry = (entry: Entry): Entry => ({
 
 const cloneEntries = (entries: Entry[]): Entry[] => {
 	return entries.map((entry) => cloneEntry(entry));
+};
+
+type IndexSnapshot = {
+	revision: number;
+	map: Map<string, Entry[]>;
+};
+
+let indexSnapshot: IndexSnapshot | null = null;
+
+const getSnapshot = () => {
+	return {
+		version: memoryState.version,
+		entries: cloneEntries(memoryState.entries),
+		revision: stateRevision,
+	};
+};
+
+const updateMemoryState = (entries: Entry[], version: number) => {
+	memoryState.entries = cloneEntries(entries);
+	memoryState.version = version;
+	stateRevision += 1;
+	indexSnapshot = null;
+};
+
+const entriesAreDifferent = (next: Entry[]): boolean => {
+	if (memoryState.entries.length !== next.length) {
+		return true;
+	}
+
+	for (let i = 0; i < next.length; i++) {
+		const current = memoryState.entries[i];
+		const candidate = next[i];
+		if (!current || !candidate) {
+			return true;
+		}
+
+		if (
+			current.id !== candidate.id ||
+			current.ymd !== candidate.ymd ||
+			current.content !== candidate.content ||
+			current.createdAt !== candidate.createdAt ||
+			(current.replacedAt ?? null) !== (candidate.replacedAt ?? null)
+		) {
+			return true;
+		}
+	}
+
+	return false;
 };
 
 const isValidYMD = (value: string): boolean => {
@@ -46,6 +98,44 @@ const isValidISODate = (value: string): boolean => {
 	}
 };
 
+const isValidBaseEntry = (value: unknown): value is Omit<Entry, "id"> => {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+
+	const record = value as Record<string, unknown>;
+
+	if (
+		typeof record.content !== "string" ||
+		record.content.length === 0 ||
+		record.content.length > MAX_THOUGHT_LENGTH
+	) {
+		return false;
+	}
+
+	if (typeof record.ymd !== "string" || !isValidYMD(record.ymd)) {
+		return false;
+	}
+
+	if (
+		typeof record.createdAt !== "string" ||
+		!isValidISODate(record.createdAt)
+	) {
+		return false;
+	}
+
+	const replacedAt = record.replacedAt;
+	if (
+		replacedAt !== undefined &&
+		replacedAt !== null &&
+		(typeof replacedAt !== "string" || !isValidISODate(replacedAt))
+	) {
+		return false;
+	}
+
+	return true;
+};
+
 const isValidEntry = (value: unknown): value is Entry => {
 	if (!value || typeof value !== "object") {
 		return false;
@@ -56,16 +146,12 @@ const isValidEntry = (value: unknown): value is Entry => {
 	return (
 		typeof record.id === "string" &&
 		record.id.length > 0 &&
-		typeof record.ymd === "string" &&
-		isValidYMD(record.ymd) &&
-		typeof record.content === "string" &&
-		record.content.length <= MAX_THOUGHT_LENGTH &&
-		typeof record.createdAt === "string" &&
-		isValidISODate(record.createdAt) &&
-		(record.replacedAt === undefined ||
-			record.replacedAt === null ||
-			(typeof record.replacedAt === "string" &&
-				isValidISODate(record.replacedAt)))
+		isValidBaseEntry({
+			content: record.content,
+			ymd: record.ymd,
+			createdAt: record.createdAt,
+			replacedAt: record.replacedAt,
+		})
 	);
 };
 
@@ -94,14 +180,11 @@ const getBrowserStorage = (): Storage | null => {
 	return cachedStorage;
 };
 
-const readState = (): StoredState => {
+const readState = (): StoredState & { revision: number } => {
 	const storage = getBrowserStorage();
 
 	if (!storage) {
-		return {
-			version: CURRENT_VERSION,
-			entries: cloneEntries(memoryState.entries),
-		};
+		return getSnapshot();
 	}
 
 	// Try to migrate from old storage key if needed
@@ -120,9 +203,14 @@ const readState = (): StoredState => {
 	const raw = storage.getItem(STORAGE_KEY);
 
 	if (!raw) {
-		memoryState.entries = [];
+		if (
+			memoryState.entries.length > 0 ||
+			memoryState.version !== CURRENT_VERSION
+		) {
+			updateMemoryState([], CURRENT_VERSION);
+		}
 
-		return defaultState();
+		return getSnapshot();
 	}
 
 	try {
@@ -139,23 +227,22 @@ const readState = (): StoredState => {
 			normalized.push(cloneEntry(value));
 		}
 
-		memoryState.entries = cloneEntries(normalized);
-		memoryState.version = migrated.version;
+		if (
+			memoryState.version !== migrated.version ||
+			entriesAreDifferent(normalized)
+		) {
+			updateMemoryState(normalized, migrated.version);
+		}
 
-		return {
-			version: migrated.version,
-			entries: normalized,
-		};
+		return getSnapshot();
 	} catch {
-		memoryState.entries = [];
-
-		return defaultState();
+		updateMemoryState([], CURRENT_VERSION);
+		return getSnapshot();
 	}
 };
 
 const writeState = (next: StoredState) => {
-	memoryState.entries = cloneEntries(next.entries);
-	memoryState.version = next.version;
+	updateMemoryState(next.entries, next.version);
 
 	const storage = getBrowserStorage();
 
@@ -199,29 +286,11 @@ const generateId = (): string => {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 };
 
-const validateEntry = (entry: Omit<Entry, "id">): void => {
-	if (!entry.content || typeof entry.content !== "string") {
-		throw new Error("Entry content must be a non-empty string");
-	}
-
-	if (entry.content.length > MAX_THOUGHT_LENGTH) {
-		throw new Error(
-			`Entry content exceeds maximum length of ${MAX_THOUGHT_LENGTH} characters`,
-		);
-	}
-
-	if (!entry.ymd || !/^\d{4}-\d{2}-\d{2}$/.test(entry.ymd)) {
-		throw new Error("Entry ymd must be in YYYY-MM-DD format");
-	}
-
-	if (!entry.createdAt) {
-		throw new Error("Entry createdAt is required");
+const assertValidEntryData = (entry: Omit<Entry, "id">): void => {
+	if (!isValidBaseEntry(entry)) {
+		throw new Error("Entry payload is invalid");
 	}
 };
-
-// Index cache for fast lookup
-let entriesCache: Entry[] | null = null;
-let ymdIndex: Map<string, Entry[]> | null = null;
 
 function buildIndex(entries: Entry[]): Map<string, Entry[]> {
 	const index = new Map<string, Entry[]>();
@@ -235,21 +304,22 @@ function buildIndex(entries: Entry[]): Map<string, Entry[]> {
 	return index;
 }
 
-function invalidateCache() {
-	entriesCache = null;
-	ymdIndex = null;
+function ensureIndex(entries: Entry[], revision: number): Map<string, Entry[]> {
+	if (!indexSnapshot || indexSnapshot.revision !== revision) {
+		indexSnapshot = {
+			revision,
+			map: buildIndex(entries),
+		};
+	}
+
+	return indexSnapshot.map;
 }
 
 const storage: DailyEntriesStore = {
 	async get(ymd) {
-		const { entries } = readState();
-
-		if (!ymdIndex || entriesCache !== entries) {
-			ymdIndex = buildIndex(entries);
-			entriesCache = entries;
-		}
-
-		const matches = ymdIndex.get(ymd) || [];
+		const { entries, revision } = readState();
+		const index = ensureIndex(entries, revision);
+		const matches = index.get(ymd) || [];
 		const activeEntries = matches.filter((entry) => !entry.replacedAt);
 
 		if (activeEntries.length === 0) {
@@ -262,7 +332,7 @@ const storage: DailyEntriesStore = {
 	},
 
 	async put(entry) {
-		validateEntry(entry);
+		assertValidEntryData(entry);
 
 		const state = readState();
 		const newEntry: Entry = {
@@ -271,7 +341,6 @@ const storage: DailyEntriesStore = {
 			replacedAt: null,
 		};
 
-		invalidateCache();
 		writeState({
 			version: state.version,
 			entries: [...state.entries, newEntry],
@@ -281,7 +350,7 @@ const storage: DailyEntriesStore = {
 	},
 
 	async replace(entry) {
-		validateEntry(entry);
+		assertValidEntryData(entry);
 
 		const state = readState();
 		const now = new Date().toISOString();
@@ -303,7 +372,6 @@ const storage: DailyEntriesStore = {
 			replacedAt: null,
 		};
 
-		invalidateCache();
 		writeState({
 			version: state.version,
 			entries: [...updatedEntries, newEntry],
@@ -316,6 +384,10 @@ const storage: DailyEntriesStore = {
 		const { entries } = readState();
 
 		return sortEntriesForList(entries).map((entry) => cloneEntry(entry));
+	},
+
+	async getAllWithRetry(options: RetryOptions = {}) {
+		return withRetry(() => storage.getAll(), options);
 	},
 
 	admin: {
@@ -340,9 +412,13 @@ const storage: DailyEntriesStore = {
 			const preserved = state.entries.filter(
 				(entry) => entry.ymd !== record.ymd,
 			);
-			const normalized = record.entries.map((entry) => cloneEntry(entry));
+			const normalized = record.entries.map((entry) => {
+				if (!isValidEntry(entry)) {
+					throw new Error(`Invalid entry in record for ${record.ymd}`);
+				}
+				return cloneEntry(entry);
+			});
 
-			invalidateCache();
 			writeState({
 				version: state.version,
 				entries: [...preserved, ...normalized],
@@ -353,7 +429,6 @@ const storage: DailyEntriesStore = {
 			const state = readState();
 			const remaining = state.entries.filter((entry) => entry.ymd !== ymd);
 
-			invalidateCache();
 			writeState({
 				version: state.version,
 				entries: remaining,
@@ -361,7 +436,6 @@ const storage: DailyEntriesStore = {
 		},
 
 		async clear() {
-			invalidateCache();
 			writeState(defaultState());
 		},
 	},

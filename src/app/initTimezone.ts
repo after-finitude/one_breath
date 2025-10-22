@@ -6,6 +6,10 @@ const TIMEZONE_STORAGE_KEY = "one_breath_timezone";
 
 let activeTimezone: string | null = null;
 
+const resolveSystemTimezone = (): string => {
+	return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
+
 const isValidTimezone = (tz: string): boolean => {
 	try {
 		Intl.DateTimeFormat(undefined, { timeZone: tz });
@@ -43,8 +47,7 @@ export const getActiveTimezone = (): string | null => {
 
 export const initializeTimezone = (): string => {
 	const storedTimezone = readStoredTimezone();
-	const resolvedTimezone =
-		storedTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const resolvedTimezone = storedTimezone ?? resolveSystemTimezone();
 
 	activeTimezone = resolvedTimezone;
 	setTimezone(resolvedTimezone);
@@ -67,6 +70,8 @@ export const setPreferredTimezone = (tz: string): void => {
 };
 
 export const clearPreferredTimezone = (): void => {
-	activeTimezone = null;
 	storageAdapter.remove(TIMEZONE_STORAGE_KEY);
+	const fallback = resolveSystemTimezone();
+	activeTimezone = fallback;
+	setTimezone(fallback);
 };

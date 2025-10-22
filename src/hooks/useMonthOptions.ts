@@ -22,13 +22,15 @@ export function useMonthOptions() {
 			grouped[monthKey].push(entry);
 		}
 
-		const sortedMonths = Object.keys(grouped).sort().reverse();
+		const sortedMonths = Object.keys(grouped).sort((a, b) =>
+			b.localeCompare(a),
+		);
 
 		for (const month of sortedMonths) {
 			const monthEntries = grouped[month];
 			if (monthEntries) {
-				grouped[month] = [...monthEntries].sort(
-					(a, b) => new Date(a.ymd).getTime() - new Date(b.ymd).getTime(),
+				grouped[month] = [...monthEntries].sort((a, b) =>
+					a.ymd.localeCompare(b.ymd),
 				);
 			}
 		}

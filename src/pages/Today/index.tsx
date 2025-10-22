@@ -1,4 +1,4 @@
-import type { JSX } from "preact";
+import type { JSX, TargetedEvent } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
@@ -8,11 +8,13 @@ import { useToast } from "../../context";
 import { useEntries } from "../../hooks/useEntries";
 import { useTranslation } from "../../hooks/useTranslation";
 import { getTodayYMD } from "../../lib/date";
+import { createSessionDraft } from "../../lib/drafts";
 import { logError } from "../../lib/errors";
 import { storage } from "../../lib/storage";
 import type { Entry } from "../../types/entry";
 
 const DRAFT_KEY = "one-breath-today-draft";
+const draft = createSessionDraft(DRAFT_KEY);
 
 export const Today = (): JSX.Element => {
 	const { t } = useTranslation();
@@ -20,8 +22,6 @@ export const Today = (): JSX.Element => {
 	const toast = useToast();
 
 	const [content, setContent] = useState("");
-	const [_draftRestored, setDraftRestored] = useState(false);
-	const [charCount, setCharCount] = useState(0);
 	const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
 	const [entryToReplace, setEntryToReplace] = useState<Omit<
 		Entry,
@@ -30,8 +30,8 @@ export const Today = (): JSX.Element => {
 	const [isSaving, setIsSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const handleTextareaInput = useCallback(
-		(event: Event) => {
-			const nextValue = (event.target as HTMLTextAreaElement).value;
+		(event: TargetedEvent<HTMLTextAreaElement, Event>) => {
+			const nextValue = event.currentTarget.value;
 			setContent(nextValue);
 
 			if (saveError) {
@@ -58,12 +58,7 @@ export const Today = (): JSX.Element => {
 			await storage.replace(entryToReplace);
 			await refresh();
 			setContent("");
-			// Clear draft after successful save
-			try {
-				sessionStorage.removeItem(DRAFT_KEY);
-			} catch {
-				// Ignore errors
-			}
+			draft.clear();
 			resetEntryState();
 			toast.success(t("entry_saved"));
 		} catch (error) {
@@ -110,12 +105,7 @@ export const Today = (): JSX.Element => {
 			await storage.put(newEntryData);
 			await refresh();
 			setContent("");
-			// Clear draft after successful save
-			try {
-				sessionStorage.removeItem(DRAFT_KEY);
-			} catch {
-				// Ignore errors
-			}
+			draft.clear();
 			toast.success(t("entry_saved"));
 		} catch (error) {
 			logError("Failed to save entry", error, {
@@ -131,32 +121,15 @@ export const Today = (): JSX.Element => {
 
 	// Restore draft on mount
 	useEffect(() => {
-		try {
-			const savedDraft = sessionStorage.getItem(DRAFT_KEY);
-			if (savedDraft?.trim()) {
-				setContent(savedDraft);
-				setDraftRestored(true);
-			}
-		} catch (_error) {
-			// Ignore errors (e.g., sessionStorage not available)
+		const savedDraft = draft.load();
+		if (savedDraft.trim()) {
+			setContent(savedDraft);
 		}
 	}, []);
 
 	// Auto-save draft when content changes
 	useEffect(() => {
-		try {
-			if (content.trim()) {
-				sessionStorage.setItem(DRAFT_KEY, content);
-			} else {
-				sessionStorage.removeItem(DRAFT_KEY);
-			}
-		} catch (_error) {
-			// Ignore errors (e.g., sessionStorage not available or quota exceeded)
-		}
-	}, [content]);
-
-	useEffect(() => {
-		setCharCount(content.length);
+		draft.save(content);
 	}, [content]);
 
 	useEffect(() => {
@@ -187,7 +160,7 @@ export const Today = (): JSX.Element => {
 				/>
 				<div className="flex items-center justify-between">
 					<span className="text-sm text-gray-600">
-						{charCount} / {MAX_THOUGHT_LENGTH}
+						{content.length} / {MAX_THOUGHT_LENGTH}
 					</span>
 					<Button
 						onClick={handleSave}

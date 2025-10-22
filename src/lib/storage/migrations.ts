@@ -10,56 +10,73 @@ export const CURRENT_VERSION = 1;
 type Migration = {
 	from: number;
 	to: number;
-	migrate: (data: unknown) => StoredState;
+	migrate: (input: unknown) => StoredState;
 };
 
 const migrations: Migration[] = [
 	{
 		from: 0, // old format without version
 		to: 1,
-		migrate: (data): StoredState => {
-			// Handle old format: { entries: Entry[] }
-			if (data && typeof data === "object" && "entries" in data) {
-				const entries = Array.isArray(data.entries) ? data.entries : [];
-				return {
-					version: 1,
-					entries,
-				};
+		migrate: (input): StoredState => {
+			if (!input || typeof input !== "object") {
+				return { version: 1, entries: [] };
 			}
 
-			// Fallback for unexpected formats
+			const record = input as Record<string, unknown>;
+			const rawEntries = Array.isArray(record.entries) ? record.entries : [];
+
 			return {
 				version: 1,
-				entries: [],
+				entries: rawEntries as Entry[],
 			};
 		},
 	},
 ];
 
+const isStoredState = (value: unknown): value is StoredState => {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+
+	const record = value as Record<string, unknown>;
+
+	return typeof record.version === "number" && Array.isArray(record.entries);
+};
+
 export function migrateData(data: unknown): StoredState {
 	if (!data || typeof data !== "object") {
-		return {
-			version: CURRENT_VERSION,
-			entries: [],
-		};
+		return { version: CURRENT_VERSION, entries: [] };
 	}
 
-	const record = data as Record<string, unknown>;
-	const currentVersion =
-		typeof record.version === "number" ? record.version : 0;
+	let currentVersion =
+		typeof (data as { version?: unknown }).version === "number"
+			? ((data as { version: number }).version as number)
+			: 0;
+	let currentState: unknown = data;
+	let safety = 0;
 
-	let current: StoredState =
-		currentVersion === 0 ? { version: 0, entries: [] } : (data as StoredState);
+	while (currentVersion < CURRENT_VERSION) {
+		const migration = migrations.find(({ from }) => from === currentVersion);
 
-	for (const migration of migrations) {
-		if (currentVersion >= migration.to) {
-			continue;
+		if (!migration) {
+			return { version: CURRENT_VERSION, entries: [] };
 		}
 
-		if (currentVersion === migration.from) {
-			current = migration.migrate(current);
+		currentState = migration.migrate(currentState);
+		currentVersion = (currentState as StoredState).version;
+
+		if (++safety > migrations.length + 1) {
+			// Prevent accidental infinite loops caused by misconfigured migrations.
+			return { version: CURRENT_VERSION, entries: [] };
 		}
 	}
 
-	return current;
+	if (!isStoredState(currentState)) {
+		return { version: CURRENT_VERSION, entries: [] };
+	}
+
+	return {
+		version: CURRENT_VERSION,
+		entries: currentState.entries as Entry[],
+	};
 }

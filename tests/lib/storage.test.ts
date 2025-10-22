@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { storage } from "../../src/lib/storage";
+import { migrateData } from "../../src/lib/storage/migrations";
 import type { Entry } from "../../src/types/entry";
 
 const baseEntry = {
@@ -74,5 +75,68 @@ describe("storage", () => {
 
 		const missing = await storage.admin.readRecord(baseEntry.ymd);
 		expect(missing).toBeNull();
+	});
+
+	it("retries getAll calls when a transient error occurs", async () => {
+		await storage.put(baseEntry);
+
+		const originalGetAll = storage.getAll.bind(storage);
+		let attempts = 0;
+
+		// Simulate a transient failure on the first invocation.
+		(storage.getAll as typeof storage.getAll) = async () => {
+			attempts += 1;
+			if (attempts === 1) {
+				throw new Error("Transient failure");
+			}
+			return originalGetAll();
+		};
+
+		try {
+			const results = await storage.getAllWithRetry({
+				maxAttempts: 2,
+				initialDelay: 0,
+			});
+
+			expect(attempts).toBe(2);
+			expect(results).toHaveLength(1);
+		} finally {
+			// Restore original implementation to avoid impacting other tests.
+			(storage.getAll as typeof storage.getAll) = originalGetAll;
+		}
+	});
+
+	it("refreshes cached index after replacements", async () => {
+		const original = await storage.put(baseEntry);
+		const initial = await storage.get(baseEntry.ymd);
+		expect(initial?.id).toBe(original.id);
+
+		const replacement = await storage.replace({
+			...baseEntry,
+			content: "Another thought",
+			createdAt: "2025-01-15T21:00:00.000Z",
+		});
+
+		const current = await storage.get(baseEntry.ymd);
+		expect(current?.id).toBe(replacement.id);
+		expect(current?.content).toBe("Another thought");
+	});
+
+	it("retains legacy entries during migration", () => {
+		const legacy = {
+			entries: [
+				{
+					id: "legacy-1",
+					...baseEntry,
+					replacedAt: null,
+				},
+			],
+		};
+
+		const migrated = migrateData(legacy);
+
+		expect(migrated.version).toBe(1);
+		expect(migrated.entries).toHaveLength(1);
+		expect(migrated.entries[0]?.id).toBe("legacy-1");
 	});
 });
