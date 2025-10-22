@@ -148,8 +148,8 @@ export const History = (): JSX.Element => {
 				title={selectedEntry?.ymd || ""}
 			>
 				{selectedEntry && (
-					<div className="space-y-4 text-left">
-						<p className="whitespace-pre-wrap text-base leading-relaxed text-black">
+						<div className="space-y-4 text-left">
+							<p className="whitespace-pre-wrap break-words text-base leading-relaxed text-black">
 							{selectedEntry.content}
 						</p>
 						<div className="border border-black bg-white px-4 py-3 text-xs font-bold uppercase tracking-wide text-gray-600">
