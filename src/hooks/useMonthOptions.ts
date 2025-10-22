@@ -1,4 +1,5 @@
 import { useMemo } from "preact/hooks";
+import { MONTH_KEY_LENGTH } from "../config/constants";
 import type { Entry } from "../types/entry";
 import { useEntries } from "./useEntries";
 
@@ -12,7 +13,7 @@ export function useMonthOptions() {
 		const grouped: MonthEntriesMap = {};
 
 		for (const entry of activeEntries) {
-			const monthKey = entry.ymd.substring(0, 7);
+			const monthKey = entry.ymd.substring(0, MONTH_KEY_LENGTH);
 
 			if (!grouped[monthKey]) {
 				grouped[monthKey] = [];

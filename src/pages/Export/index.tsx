@@ -2,6 +2,7 @@ import type { JSX } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { Button } from "../../components/ui/button";
 import { Select } from "../../components/ui/select";
+import { EXPORT_FILE_PREFIX } from "../../config/constants";
 import { useMonthOptions } from "../../hooks/useMonthOptions";
 import { useTranslation } from "../../hooks/useTranslation";
 
@@ -69,12 +70,12 @@ export const Export = (): JSX.Element => {
 	);
 
 	const handleExportTxt = useCallback(() => {
-		const filename = `one-breath-${selectedMonth}.txt`;
+		const filename = `${EXPORT_FILE_PREFIX}-${selectedMonth}.txt`;
 		downloadFile(generateTxtContent(), filename, "text/plain");
 	}, [selectedMonth, generateTxtContent, downloadFile]);
 
 	const handleExportMd = useCallback(() => {
-		const filename = `one-breath-${selectedMonth}.md`;
+		const filename = `${EXPORT_FILE_PREFIX}-${selectedMonth}.md`;
 		downloadFile(generateMdContent(), filename, "text/markdown");
 	}, [selectedMonth, generateMdContent, downloadFile]);
 

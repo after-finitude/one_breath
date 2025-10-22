@@ -1,3 +1,10 @@
+import {
+	DEFAULT_BACKOFF_FACTOR,
+	DEFAULT_INITIAL_DELAY,
+	DEFAULT_MAX_ATTEMPTS,
+	DEFAULT_MAX_DELAY,
+} from "../config/constants";
+
 export type RetryOptions = {
 	maxAttempts?: number;
 	initialDelay?: number;
@@ -10,10 +17,10 @@ export async function withRetry<T>(
 	options: RetryOptions = {},
 ): Promise<T> {
 	const {
-		maxAttempts = 3,
-		initialDelay = 100,
-		maxDelay = 2000,
-		backoffFactor = 2,
+		maxAttempts = DEFAULT_MAX_ATTEMPTS,
+		initialDelay = DEFAULT_INITIAL_DELAY,
+		maxDelay = DEFAULT_MAX_DELAY,
+		backoffFactor = DEFAULT_BACKOFF_FACTOR,
 	} = options;
 
 	let lastError: Error = new Error("Unknown error");

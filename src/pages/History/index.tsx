@@ -2,7 +2,7 @@ import type { FunctionalComponent, JSX } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import Modal from "../../a11y/modal";
 import { Button } from "../../components/ui/button";
-import { ENTRIES_PER_PAGE } from "../../config/constants";
+import { ENTRIES_PER_PAGE, PREVIEW_LENGTH } from "../../config/constants";
 import { useEntries } from "../../hooks/useEntries";
 import { useTranslation } from "../../hooks/useTranslation";
 import type { Entry } from "../../types/entry";
@@ -25,7 +25,7 @@ const HistoryEntry: FunctionalComponent<HistoryEntryProps> = ({
 			<div className="space-y-1">
 				<div className="text-sm font-bold text-black">{entry.ymd}</div>
 				<div className="line-clamp-2 text-sm text-gray-600">
-					{entry.content.substring(0, 100)}...
+					{entry.content.substring(0, PREVIEW_LENGTH)}...
 				</div>
 			</div>
 		</button>

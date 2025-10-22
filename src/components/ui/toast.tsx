@@ -1,5 +1,6 @@
 import type { JSX } from "preact";
 import { useEffect } from "preact/hooks";
+import { DEFAULT_TOAST_DURATION } from "../../config/constants";
 
 export type ToastType = "success" | "error" | "info";
 
@@ -17,7 +18,7 @@ type ToastProps = {
 
 function ToastItem({ toast, onClose }: ToastProps): JSX.Element {
 	useEffect(() => {
-		const duration = toast.duration ?? 3000;
+		const duration = toast.duration ?? DEFAULT_TOAST_DURATION;
 		const timer = setTimeout(() => {
 			onClose(toast.id);
 		}, duration);

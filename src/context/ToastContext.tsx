@@ -3,6 +3,7 @@ import { createContext } from "preact";
 import { useCallback, useContext, useMemo, useState } from "preact/hooks";
 import type { Toast, ToastType } from "../components/ui/toast";
 import { ToastContainer } from "../components/ui/toast";
+import { DEFAULT_TOAST_DURATION } from "../config/constants";
 
 type ToastContextValue = {
 	showToast: (message: string, type?: ToastType, duration?: number) => void;
@@ -13,6 +14,10 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+function generateToastId(): string {
+	return `${Date.now()}-${Math.random()}`;
+}
+
 export function ToastProvider({ children }: { children: ComponentChildren }) {
 	const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -21,8 +26,12 @@ export function ToastProvider({ children }: { children: ComponentChildren }) {
 	}, []);
 
 	const showToast = useCallback(
-		(message: string, type: ToastType = "info", duration = 3000) => {
-			const id = `${Date.now()}-${Math.random()}`;
+		(
+			message: string,
+			type: ToastType = "info",
+			duration = DEFAULT_TOAST_DURATION,
+		) => {
+			const id = generateToastId();
 			const toast: Toast = { id, message, type, duration };
 			setToasts((prev) => [...prev, toast]);
 		},

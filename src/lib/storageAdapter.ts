@@ -1,3 +1,5 @@
+import { STORAGE_TEST_KEY } from "../config/constants";
+
 export type StorageAdapter = {
 	get<T>(key: string): T | null;
 	set<T>(key: string, value: T): boolean;
@@ -21,9 +23,8 @@ const createStorageAdapter = (): StorageAdapter => {
 		}
 
 		try {
-			const test = "__storage_test__";
-			window.localStorage.setItem(test, "ok");
-			window.localStorage.removeItem(test);
+			window.localStorage.setItem(STORAGE_TEST_KEY, "ok");
+			window.localStorage.removeItem(STORAGE_TEST_KEY);
 			storage = window.localStorage;
 		} catch {
 			storage = null;
