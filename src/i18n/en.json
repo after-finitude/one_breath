@@ -44,5 +44,7 @@
 	"reset_data": "Reset Data",
 	"daily_prompt_lead": "Take a breath, slow down, and write the single moment that matters most today.",
 	"history_lead": "Revisit previous reflections and notice the patterns forming over time.",
-	"export_lead": "Gather your thoughts for safekeeping or sharing in a format that works for you."
+	"export_lead": "Gather your thoughts for safekeeping or sharing in a format that works for you.",
+	"entry_saved": "Entry saved successfully",
+	"draft_restored": "Draft restored"
 }

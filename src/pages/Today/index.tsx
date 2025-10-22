@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { Textarea } from "../../components/ui/textarea";
 import { MAX_THOUGHT_LENGTH } from "../../config/constants";
+import { useToast } from "../../context";
 import { useEntries } from "../../hooks/useEntries";
 import { useTranslation } from "../../hooks/useTranslation";
 import { getTodayYMD } from "../../lib/date";
@@ -16,6 +17,7 @@ const DRAFT_KEY = "one-breath-today-draft";
 export const Today = (): JSX.Element => {
 	const { t } = useTranslation();
 	const { refresh } = useEntries();
+	const toast = useToast();
 
 	const [content, setContent] = useState("");
 	const [_draftRestored, setDraftRestored] = useState(false);
@@ -63,16 +65,18 @@ export const Today = (): JSX.Element => {
 				// Ignore errors
 			}
 			resetEntryState();
+			toast.success(t("entry_saved"));
 		} catch (error) {
 			logError("Failed to replace entry", error, {
 				component: "Today",
 				action: "replace",
 			});
 			setSaveError(t("failed_to_save_entry"));
+			toast.error(t("failed_to_save_entry"));
 		} finally {
 			setIsSaving(false);
 		}
-	}, [entryToReplace, resetEntryState, t, refresh]);
+	}, [entryToReplace, resetEntryState, t, refresh, toast]);
 
 	const cancelReplace = useCallback(() => {
 		resetEntryState();
@@ -112,16 +116,18 @@ export const Today = (): JSX.Element => {
 			} catch {
 				// Ignore errors
 			}
+			toast.success(t("entry_saved"));
 		} catch (error) {
 			logError("Failed to save entry", error, {
 				component: "Today",
 				action: "save",
 			});
 			setSaveError(t("failed_to_save_entry"));
+			toast.error(t("failed_to_save_entry"));
 		} finally {
 			setIsSaving(false);
 		}
-	}, [content, isSaving, t, refresh]);
+	}, [content, isSaving, t, refresh, toast]);
 
 	// Restore draft on mount
 	useEffect(() => {
