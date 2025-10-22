@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { Textarea } from "../../components/ui/textarea";
 import { MAX_THOUGHT_LENGTH } from "../../config/constants";
-import { refreshEntriesCache } from "../../hooks/useEntries";
+import { useEntries } from "../../hooks/useEntries";
 import { useTranslation } from "../../hooks/useTranslation";
 import { getTodayYMD } from "../../lib/date";
 import { logError } from "../../lib/errors";
@@ -15,6 +15,7 @@ const DRAFT_KEY = "one-breath-today-draft";
 
 export const Today = (): JSX.Element => {
 	const { t } = useTranslation();
+	const { refresh } = useEntries();
 
 	const [content, setContent] = useState("");
 	const [_draftRestored, setDraftRestored] = useState(false);
@@ -53,7 +54,7 @@ export const Today = (): JSX.Element => {
 
 		try {
 			await storage.replace(entryToReplace);
-			await refreshEntriesCache();
+			await refresh();
 			setContent("");
 			// Clear draft after successful save
 			try {
@@ -71,7 +72,7 @@ export const Today = (): JSX.Element => {
 		} finally {
 			setIsSaving(false);
 		}
-	}, [entryToReplace, resetEntryState, t]);
+	}, [entryToReplace, resetEntryState, t, refresh]);
 
 	const cancelReplace = useCallback(() => {
 		resetEntryState();
@@ -103,7 +104,7 @@ export const Today = (): JSX.Element => {
 			}
 
 			await storage.put(newEntryData);
-			await refreshEntriesCache();
+			await refresh();
 			setContent("");
 			// Clear draft after successful save
 			try {
@@ -120,7 +121,7 @@ export const Today = (): JSX.Element => {
 		} finally {
 			setIsSaving(false);
 		}
-	}, [content, isSaving, t]);
+	}, [content, isSaving, t, refresh]);
 
 	// Restore draft on mount
 	useEffect(() => {

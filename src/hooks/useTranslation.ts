@@ -17,9 +17,12 @@ export function useTranslation() {
 		return unsubscribe;
 	}, []);
 
-	const t = useCallback((key: TranslationKey): string => {
-		return getTranslation(key);
-	}, []);
+	const t = useCallback(
+		(key: TranslationKey): string => {
+			return getTranslation(key);
+		},
+		[language],
+	);
 
 	return { t, language };
 }

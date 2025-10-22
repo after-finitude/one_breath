@@ -219,12 +219,38 @@ const validateEntry = (entry: Omit<Entry, "id">): void => {
 	}
 };
 
+// Index cache for fast lookup
+let entriesCache: Entry[] | null = null;
+let ymdIndex: Map<string, Entry[]> | null = null;
+
+function buildIndex(entries: Entry[]): Map<string, Entry[]> {
+	const index = new Map<string, Entry[]>();
+
+	for (const entry of entries) {
+		const existing = index.get(entry.ymd) || [];
+		existing.push(entry);
+		index.set(entry.ymd, existing);
+	}
+
+	return index;
+}
+
+function invalidateCache() {
+	entriesCache = null;
+	ymdIndex = null;
+}
+
 const storage: DailyEntriesStore = {
 	async get(ymd) {
 		const { entries } = readState();
-		const activeEntries = entries.filter(
-			(entry) => entry.ymd === ymd && !entry.replacedAt,
-		);
+
+		if (!ymdIndex || entriesCache !== entries) {
+			ymdIndex = buildIndex(entries);
+			entriesCache = entries;
+		}
+
+		const matches = ymdIndex.get(ymd) || [];
+		const activeEntries = matches.filter((entry) => !entry.replacedAt);
 
 		if (activeEntries.length === 0) {
 			return null;
@@ -245,6 +271,7 @@ const storage: DailyEntriesStore = {
 			replacedAt: null,
 		};
 
+		invalidateCache();
 		writeState({
 			version: state.version,
 			entries: [...state.entries, newEntry],
@@ -276,6 +303,7 @@ const storage: DailyEntriesStore = {
 			replacedAt: null,
 		};
 
+		invalidateCache();
 		writeState({
 			version: state.version,
 			entries: [...updatedEntries, newEntry],
@@ -314,6 +342,7 @@ const storage: DailyEntriesStore = {
 			);
 			const normalized = record.entries.map((entry) => cloneEntry(entry));
 
+			invalidateCache();
 			writeState({
 				version: state.version,
 				entries: [...preserved, ...normalized],
@@ -324,6 +353,7 @@ const storage: DailyEntriesStore = {
 			const state = readState();
 			const remaining = state.entries.filter((entry) => entry.ymd !== ymd);
 
+			invalidateCache();
 			writeState({
 				version: state.version,
 				entries: remaining,
@@ -331,6 +361,7 @@ const storage: DailyEntriesStore = {
 		},
 
 		async clear() {
+			invalidateCache();
 			writeState(defaultState());
 		},
 	},
