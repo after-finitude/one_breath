@@ -1,19 +1,19 @@
 import { MAX_THOUGHT_LENGTH } from "../../config/constants";
 import type { Entry } from "../../types/entry";
+import { CURRENT_VERSION, migrateData, type StoredState } from "./migrations";
 import type { DailyEntriesStore } from "./types";
 
-const STORAGE_KEY = "one-breath::entries::v1";
+const STORAGE_KEY = "one-breath::entries::v2";
+const OLD_STORAGE_KEY = "one-breath::entries::v1";
 const STORAGE_TEST_KEY = "__one-breath-storage-test__";
 
-type StoredState = {
-	entries: Entry[];
-};
-
 const memoryState: StoredState = {
+	version: CURRENT_VERSION,
 	entries: [],
 };
 
 const defaultState = (): StoredState => ({
+	version: CURRENT_VERSION,
 	entries: [],
 });
 
@@ -99,8 +99,22 @@ const readState = (): StoredState => {
 
 	if (!storage) {
 		return {
+			version: CURRENT_VERSION,
 			entries: cloneEntries(memoryState.entries),
 		};
+	}
+
+	// Try to migrate from old storage key if needed
+	const oldRaw = storage.getItem(OLD_STORAGE_KEY);
+	if (oldRaw && !storage.getItem(STORAGE_KEY)) {
+		try {
+			const oldData = JSON.parse(oldRaw);
+			const migrated = migrateData(oldData);
+			storage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+			storage.removeItem(OLD_STORAGE_KEY);
+		} catch {
+			// Migration failed, continue with empty state
+		}
 	}
 
 	const raw = storage.getItem(STORAGE_KEY);
@@ -112,17 +126,12 @@ const readState = (): StoredState => {
 	}
 
 	try {
-		const parsed = JSON.parse(raw) as { entries?: unknown };
-
-		if (!Array.isArray(parsed.entries)) {
-			memoryState.entries = [];
-
-			return defaultState();
-		}
+		const parsed = JSON.parse(raw);
+		const migrated = migrateData(parsed);
 
 		const normalized: Entry[] = [];
 
-		for (const value of parsed.entries) {
+		for (const value of migrated.entries) {
 			if (!isValidEntry(value)) {
 				continue;
 			}
@@ -131,8 +140,12 @@ const readState = (): StoredState => {
 		}
 
 		memoryState.entries = cloneEntries(normalized);
+		memoryState.version = migrated.version;
 
-		return { entries: normalized };
+		return {
+			version: migrated.version,
+			entries: normalized,
+		};
 	} catch {
 		memoryState.entries = [];
 
@@ -142,6 +155,7 @@ const readState = (): StoredState => {
 
 const writeState = (next: StoredState) => {
 	memoryState.entries = cloneEntries(next.entries);
+	memoryState.version = next.version;
 
 	const storage = getBrowserStorage();
 
@@ -151,6 +165,7 @@ const writeState = (next: StoredState) => {
 
 	try {
 		const payload = JSON.stringify({
+			version: next.version,
 			entries: next.entries.map((entry) => ({
 				...entry,
 				replacedAt: entry.replacedAt ?? null,
@@ -231,6 +246,7 @@ const storage: DailyEntriesStore = {
 		};
 
 		writeState({
+			version: state.version,
 			entries: [...state.entries, newEntry],
 		});
 
@@ -261,6 +277,7 @@ const storage: DailyEntriesStore = {
 		};
 
 		writeState({
+			version: state.version,
 			entries: [...updatedEntries, newEntry],
 		});
 
@@ -298,6 +315,7 @@ const storage: DailyEntriesStore = {
 			const normalized = record.entries.map((entry) => cloneEntry(entry));
 
 			writeState({
+				version: state.version,
 				entries: [...preserved, ...normalized],
 			});
 		},
@@ -306,7 +324,10 @@ const storage: DailyEntriesStore = {
 			const state = readState();
 			const remaining = state.entries.filter((entry) => entry.ymd !== ymd);
 
-			writeState({ entries: remaining });
+			writeState({
+				version: state.version,
+				entries: remaining,
+			});
 		},
 
 		async clear() {
