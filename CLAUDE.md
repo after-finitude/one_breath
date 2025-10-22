@@ -43,7 +43,7 @@ Static journaling app built with Bun + Preact. There is no backend runtime; ever
 
 ## Build & Deploy
 
-`bun run build` writes the static bundle to `docs/` (HTML + CSS + JS). Commit the folder and GitHub Pages can publish it directly. CI workflow (`.github/workflows/ci.yml`) uploads the build artifact and deploys to Pages on pushes to `master`.
+`bun run build` writes the static bundle to `docs/` (HTML + CSS + JS). The `docs/` folder is git-ignored and built by CI. The CI workflow (`.github/workflows/ci.yml`) builds the site, uploads the artifact, and deploys to GitHub Pages on pushes to `main`.
 
 ## Storage Notes
 

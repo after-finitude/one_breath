@@ -29,6 +29,23 @@ const cloneEntries = (entries: Entry[]): Entry[] => {
 	return entries.map((entry) => cloneEntry(entry));
 };
 
+const isValidYMD = (value: string): boolean => {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		return false;
+	}
+	const date = new Date(value);
+	return !Number.isNaN(date.getTime());
+};
+
+const isValidISODate = (value: string): boolean => {
+	try {
+		const date = new Date(value);
+		return !Number.isNaN(date.getTime()) && date.toISOString() === value;
+	} catch {
+		return false;
+	}
+};
+
 const isValidEntry = (value: unknown): value is Entry => {
 	if (!value || typeof value !== "object") {
 		return false;
@@ -38,12 +55,17 @@ const isValidEntry = (value: unknown): value is Entry => {
 
 	return (
 		typeof record.id === "string" &&
+		record.id.length > 0 &&
 		typeof record.ymd === "string" &&
+		isValidYMD(record.ymd) &&
 		typeof record.content === "string" &&
+		record.content.length <= MAX_THOUGHT_LENGTH &&
 		typeof record.createdAt === "string" &&
+		isValidISODate(record.createdAt) &&
 		(record.replacedAt === undefined ||
 			record.replacedAt === null ||
-			typeof record.replacedAt === "string")
+			(typeof record.replacedAt === "string" &&
+				isValidISODate(record.replacedAt)))
 	);
 };
 

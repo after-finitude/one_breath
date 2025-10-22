@@ -11,10 +11,13 @@ import { logError } from "../../lib/errors";
 import { storage } from "../../lib/storage";
 import type { Entry } from "../../types/entry";
 
+const DRAFT_KEY = "one-breath-today-draft";
+
 export const Today = (): JSX.Element => {
 	const { t } = useTranslation();
 
 	const [content, setContent] = useState("");
+	const [_draftRestored, setDraftRestored] = useState(false);
 	const [charCount, setCharCount] = useState(0);
 	const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
 	const [entryToReplace, setEntryToReplace] = useState<Omit<
@@ -52,6 +55,12 @@ export const Today = (): JSX.Element => {
 			await storage.replace(entryToReplace);
 			await refreshEntriesCache();
 			setContent("");
+			// Clear draft after successful save
+			try {
+				sessionStorage.removeItem(DRAFT_KEY);
+			} catch {
+				// Ignore errors
+			}
 			resetEntryState();
 		} catch (error) {
 			logError("Failed to replace entry", error, {
@@ -96,6 +105,12 @@ export const Today = (): JSX.Element => {
 			await storage.put(newEntryData);
 			await refreshEntriesCache();
 			setContent("");
+			// Clear draft after successful save
+			try {
+				sessionStorage.removeItem(DRAFT_KEY);
+			} catch {
+				// Ignore errors
+			}
 		} catch (error) {
 			logError("Failed to save entry", error, {
 				component: "Today",
@@ -106,6 +121,32 @@ export const Today = (): JSX.Element => {
 			setIsSaving(false);
 		}
 	}, [content, isSaving, t]);
+
+	// Restore draft on mount
+	useEffect(() => {
+		try {
+			const savedDraft = sessionStorage.getItem(DRAFT_KEY);
+			if (savedDraft?.trim()) {
+				setContent(savedDraft);
+				setDraftRestored(true);
+			}
+		} catch (_error) {
+			// Ignore errors (e.g., sessionStorage not available)
+		}
+	}, []);
+
+	// Auto-save draft when content changes
+	useEffect(() => {
+		try {
+			if (content.trim()) {
+				sessionStorage.setItem(DRAFT_KEY, content);
+			} else {
+				sessionStorage.removeItem(DRAFT_KEY);
+			}
+		} catch (_error) {
+			// Ignore errors (e.g., sessionStorage not available or quota exceeded)
+		}
+	}, [content]);
 
 	useEffect(() => {
 		setCharCount(content.length);
