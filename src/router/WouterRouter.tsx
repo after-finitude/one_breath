@@ -5,11 +5,9 @@ import { History } from "../pages/History";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { Today } from "../pages/Today";
 
-const hashHrefs = (href: string) => `#${href}`;
-
 export const WouterRouter = () => {
 	return (
-		<Router hook={useHashLocation} hrefs={hashHrefs}>
+		<Router hook={useHashLocation}>
 			<Switch>
 				<Route path="/">
 					<Today />
