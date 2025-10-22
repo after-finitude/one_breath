@@ -29,7 +29,7 @@ const Modal: FunctionalComponent<ModalProps> = ({
 					<DialogTitle>{title}</DialogTitle>
 					{descriptionId && <DialogDescription id={descriptionId} />}
 				</DialogHeader>
-				<div className="py-4">{children}</div>
+				<div className="min-w-0 py-4">{children}</div>
 			</DialogContent>
 		</Dialog>
 	);
