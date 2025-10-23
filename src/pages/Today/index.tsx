@@ -155,7 +155,7 @@ export const Today = (): JSX.Element => {
 					value={content}
 					onInput={handleTextareaInput}
 					maxLength={MAX_THOUGHT_LENGTH}
-					placeholder={t("whats_on_your_mind")}
+					placeholder={t("write_your_entry")}
 					className="min-h-[300px] resize-none text-base"
 				/>
 				<div className="flex items-center justify-between">
