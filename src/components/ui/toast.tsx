@@ -28,7 +28,7 @@ function ToastItem({ toast, onClose }: ToastProps): JSX.Element {
 
 	return (
 		<div
-			className="pointer-events-auto mb-2 flex items-center justify-between rounded border border-black bg-white px-4 py-3 text-black shadow-lg"
+			className="pointer-events-auto flex items-center justify-between rounded border border-black bg-white px-4 py-3 text-black shadow-lg"
 			role="alert"
 		>
 			<span className="text-sm">{toast.message}</span>
@@ -54,7 +54,7 @@ export function ToastContainer({
 	onClose,
 }: ToastContainerProps): JSX.Element {
 	return (
-		<div className="pointer-events-none fixed left-1/2 top-4 z-50 flex w-full max-w-md -translate-x-1/2 flex-col px-4">
+		<div className="pointer-events-none fixed left-1/2 top-20 z-50 flex w-full max-w-md -translate-x-1/2 flex-col items-center gap-2 px-4">
 			{toasts.map((toast) => (
 				<ToastItem key={toast.id} toast={toast} onClose={onClose} />
 			))}
