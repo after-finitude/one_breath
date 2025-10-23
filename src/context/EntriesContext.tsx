@@ -1,13 +1,7 @@
+import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { createContext } from "preact";
-import {
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "preact/hooks";
+import { Fragment } from "preact";
+import { useEffect, useMemo } from "preact/hooks";
 import { logError, normalizeError } from "../lib/errors";
 import { storage } from "../lib/storage";
 import type { Entry } from "../types/entry";
@@ -19,109 +13,95 @@ type EntriesContextValue = {
 	refresh: () => Promise<Entry[]>;
 };
 
-const EntriesContext = createContext<EntriesContextValue | undefined>(
-	undefined,
-);
+const entriesSignal = signal<Entry[]>([]);
+const loadingSignal = signal(false);
+const errorSignal = signal<Error | null>(null);
+
+let cache: Entry[] | null = null;
+let activeRequest: Promise<Entry[]> | null = null;
+
+const loadEntriesInternal = async (force = false): Promise<Entry[]> => {
+	if (!force) {
+		if (cache) {
+			entriesSignal.value = cache;
+			return cache;
+		}
+
+		if (activeRequest) {
+			return activeRequest;
+		}
+	} else if (activeRequest) {
+		try {
+			await activeRequest;
+		} catch {
+			// Ignore errors from the previous request
+		}
+	}
+
+	loadingSignal.value = true;
+	errorSignal.value = null;
+
+	const request = storage
+		.getAllWithRetry({
+			maxAttempts: 3,
+			initialDelay: 100,
+		})
+		.then((loadedEntries) => {
+			const snapshot = [...loadedEntries];
+			cache = snapshot;
+			entriesSignal.value = snapshot;
+			errorSignal.value = null;
+
+			return snapshot;
+		})
+		.catch((err) => {
+			const normalized = normalizeError(err, "Failed to load entries");
+			logError("Failed to load entries", normalized, {
+				component: "EntriesProvider",
+			});
+			errorSignal.value = normalized;
+			cache = null;
+			entriesSignal.value = [];
+
+			throw normalized;
+		})
+		.finally(() => {
+			activeRequest = null;
+			loadingSignal.value = false;
+		});
+
+	activeRequest = request;
+
+	return request;
+};
+
+const refreshInternal = () => {
+	cache = null;
+	return loadEntriesInternal(true);
+};
 
 export function EntriesProvider({ children }: { children: ComponentChildren }) {
-	const [entries, setEntries] = useState<Entry[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<Error | null>(null);
-	const cacheRef = useRef<Entry[] | null>(null);
-	const requestRef = useRef<Promise<Entry[]> | null>(null);
-
-	const loadEntries = useCallback(async (force = false): Promise<Entry[]> => {
-		// Return cached data if available and not forcing refresh
-		if (!force) {
-			if (cacheRef.current) {
-				setEntries(cacheRef.current);
-				return cacheRef.current;
-			}
-
-			// Deduplicate concurrent requests - wait for the active request
-			if (requestRef.current) {
-				return requestRef.current;
-			}
-		} else if (requestRef.current) {
-			// If forcing refresh but there's already a request in flight,
-			// wait for it to complete to avoid race conditions
-			try {
-				await requestRef.current;
-			} catch {
-				// Ignore errors from the previous request
-			}
+	useEffect(() => {
+		if (!cache && !activeRequest) {
+			void loadEntriesInternal();
 		}
-
-		setLoading(true);
-		setError(null);
-
-		const request = storage
-			.getAllWithRetry({
-				maxAttempts: 3,
-				initialDelay: 100,
-			})
-			.then((loadedEntries) => {
-				const snapshot = [...loadedEntries];
-				cacheRef.current = snapshot;
-				setEntries(snapshot);
-				setError(null);
-
-				return snapshot;
-			})
-			.catch((err) => {
-				const normalized = normalizeError(err, "Failed to load entries");
-				logError("Failed to load entries", normalized, {
-					component: "EntriesProvider",
-				});
-				setError(normalized);
-				cacheRef.current = null;
-				setEntries([]);
-
-				throw normalized;
-			})
-			.finally(() => {
-				requestRef.current = null;
-				setLoading(false);
-			});
-
-		requestRef.current = request;
-
-		return request;
 	}, []);
 
-	const refresh = useCallback(() => {
-		cacheRef.current = null;
-		return loadEntries(true);
-	}, [loadEntries]);
+	return <Fragment>{children}</Fragment>;
+}
 
-	// Initial load
-	useEffect(() => {
-		if (!cacheRef.current && !requestRef.current) {
-			void loadEntries();
-		}
-	}, [loadEntries]);
+export function useEntriesContext(): EntriesContextValue {
+	const entries = entriesSignal.value;
+	const loading = loadingSignal.value;
+	const error = errorSignal.value;
 
-	const value = useMemo<EntriesContextValue>(
+	return useMemo(
 		() => ({
 			entries,
 			loading,
 			error,
-			refresh,
+			refresh: refreshInternal,
 		}),
-		[entries, loading, error, refresh],
+		[entries, loading, error],
 	);
-
-	return (
-		<EntriesContext.Provider value={value}>{children}</EntriesContext.Provider>
-	);
-}
-
-export function useEntriesContext(): EntriesContextValue {
-	const context = useContext(EntriesContext);
-
-	if (!context) {
-		throw new Error("useEntriesContext must be used within an EntriesProvider");
-	}
-
-	return context;
 }

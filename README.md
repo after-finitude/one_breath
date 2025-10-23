@@ -15,6 +15,7 @@ A minimalist daily thought journaling app for capturing one meaningful thought p
 
 - **Runtime & bundler**: [Bun](https://bun.sh) – fast installs, TypeScript support, and a great build pipeline.
 - **UI**: [Preact](https://preactjs.com/) with functional components and hooks.
+- **State management**: [Preact Signals](https://github.com/preactjs/signals) for lightweight global state.
 - **Routing**: [wouter-preact](https://github.com/molefrog/wouter) for lightweight client-side routing.
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) compiled with PostCSS.
 - **Persistence**: Browser `localStorage` (with graceful fallbacks for non-persistent environments).
@@ -68,7 +69,7 @@ Serves the already-built `docs/` directory without rebuilding it.
 ├── src/                  # Application source
 │   ├── app/              # App shell and layout components
 │   ├── components/       # Reusable UI components
-│   ├── context/          # React-style context providers
+│   ├── context/          # Signal-backed shared state modules
 │   ├── hooks/            # Custom hooks (entries, translation, etc.)
 │   ├── lib/
 │   │   └── storage/      # Browser storage implementation
@@ -77,7 +78,6 @@ Serves the already-built `docs/` directory without rebuilding it.
 │   ├── styles/           # Tailwind entry point
 │   └── types/            # Shared TypeScript types
 ├── tests/                # Unit and integration tests (Bun test runner)
-├── future-roadmap.md     # Project notes and long-term ideas
 ├── index.html            # HTML template copied to docs/ during build
 └── package.json
 ```
@@ -150,6 +150,7 @@ Customize or extend this workflow to publish the built `docs/` directory if you 
 - **Why Wouter?** Minimal routing API, no extra runtime costs.
 - **Why Bun?** Unified runtime, bundler, test runner, and package manager with excellent TypeScript support.
 - **Why Biome?** A single, fast formatter + linter that keeps the codebase consistent.
+- **Why Signals?** Fine-grained reactivity lets components subscribe to just the data they need without juggling provider trees.
 - **Why browser storage?** GitHub Pages and other static hosts don’t provide a server runtime. Persisting to `localStorage` keeps the experience instant and private to the device.
 
 ## Contributing

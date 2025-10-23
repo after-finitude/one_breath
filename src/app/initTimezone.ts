@@ -21,14 +21,17 @@ const isValidTimezone = (tz: string): boolean => {
 
 const readStoredTimezone = (): string | null => {
 	const stored = storageAdapter.get<string>(TIMEZONE_STORAGE_KEY);
+
 	if (stored && isValidTimezone(stored)) {
 		return stored;
 	}
+
 	return null;
 };
 
 const writeStoredTimezone = (tz: string): void => {
 	const success = storageAdapter.set(TIMEZONE_STORAGE_KEY, tz);
+
 	if (!success) {
 		logError(
 			"Failed to persist timezone preference",

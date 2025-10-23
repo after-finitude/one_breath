@@ -1,6 +1,6 @@
+import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { createContext } from "preact";
-import { useCallback, useContext, useMemo, useState } from "preact/hooks";
+import { Fragment } from "preact";
 import type { Toast, ToastType } from "../components/ui/toast";
 import { ToastContainer } from "../components/ui/toast";
 import { DEFAULT_TOAST_DURATION } from "../config/constants";
@@ -12,77 +12,60 @@ type ToastContextValue = {
 	info: (message: string, duration?: number) => void;
 };
 
-const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+const toastsSignal = signal<Toast[]>([]);
 
 function generateToastId(): string {
 	return `${Date.now()}-${Math.random()}`;
 }
 
+const removeToast = (id: string) => {
+	toastsSignal.value = toastsSignal.value.filter((toast) => toast.id !== id);
+};
+
+const showToastInternal = (
+	message: string,
+	type: ToastType = "info",
+	duration = DEFAULT_TOAST_DURATION,
+) => {
+	const id = generateToastId();
+	const toast: Toast = { id, message, type, duration };
+	toastsSignal.value = [...toastsSignal.value, toast];
+};
+
+const successToast = (message: string, duration?: number) => {
+	showToastInternal(message, "success", duration);
+};
+
+const errorToast = (message: string, duration?: number) => {
+	showToastInternal(message, "error", duration);
+};
+
+const infoToast = (message: string, duration?: number) => {
+	showToastInternal(message, "info", duration);
+};
+
+const toastApi: ToastContextValue = {
+	showToast: showToastInternal,
+	success: successToast,
+	error: errorToast,
+	info: infoToast,
+};
+
+function ToastHost() {
+	const toasts = toastsSignal.value;
+
+	return <ToastContainer toasts={toasts} onClose={removeToast} />;
+}
+
 export function ToastProvider({ children }: { children: ComponentChildren }) {
-	const [toasts, setToasts] = useState<Toast[]>([]);
-
-	const removeToast = useCallback((id: string) => {
-		setToasts((prev) => prev.filter((toast) => toast.id !== id));
-	}, []);
-
-	const showToast = useCallback(
-		(
-			message: string,
-			type: ToastType = "info",
-			duration = DEFAULT_TOAST_DURATION,
-		) => {
-			const id = generateToastId();
-			const toast: Toast = { id, message, type, duration };
-			setToasts((prev) => [...prev, toast]);
-		},
-		[],
-	);
-
-	const success = useCallback(
-		(message: string, duration?: number) => {
-			showToast(message, "success", duration);
-		},
-		[showToast],
-	);
-
-	const error = useCallback(
-		(message: string, duration?: number) => {
-			showToast(message, "error", duration);
-		},
-		[showToast],
-	);
-
-	const info = useCallback(
-		(message: string, duration?: number) => {
-			showToast(message, "info", duration);
-		},
-		[showToast],
-	);
-
-	const value = useMemo(
-		() => ({
-			showToast,
-			success,
-			error,
-			info,
-		}),
-		[showToast, success, error, info],
-	);
-
 	return (
-		<ToastContext.Provider value={value}>
+		<Fragment>
 			{children}
-			<ToastContainer toasts={toasts} onClose={removeToast} />
-		</ToastContext.Provider>
+			<ToastHost />
+		</Fragment>
 	);
 }
 
 export function useToast(): ToastContextValue {
-	const context = useContext(ToastContext);
-
-	if (!context) {
-		throw new Error("useToast must be used within a ToastProvider");
-	}
-
-	return context;
+	return toastApi;
 }

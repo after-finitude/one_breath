@@ -1,12 +1,7 @@
+import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { createContext } from "preact";
-import {
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from "preact/hooks";
+import { Fragment } from "preact";
+import { useEffect, useMemo } from "preact/hooks";
 import type { Language } from "../config/constants";
 import {
 	getCurrentLanguage,
@@ -24,73 +19,63 @@ type LanguageContextValue = {
 	t: (key: TranslationKey) => string;
 };
 
-const LanguageContext = createContext<LanguageContextValue | undefined>(
-	undefined,
-);
+const languageSignal = signal<Language>(getCurrentLanguage());
+
+const setLanguageInternal = (nextLanguage: Language) => {
+	setGlobalLanguage(nextLanguage);
+	languageSignal.value = nextLanguage;
+};
+
+const toggleLanguageInternal = () => {
+	const current = languageSignal.value;
+	const next = current === "en" ? "ru" : "en";
+	setLanguageInternal(next);
+};
+
+const translate = (key: TranslationKey) => {
+	return getTranslation(key);
+};
 
 export function LanguageProvider({
 	children,
 }: {
 	children: ComponentChildren;
 }) {
-	const [language, setLanguageState] = useState<Language>(getCurrentLanguage());
-
 	useEffect(() => {
+		if (typeof window === "undefined") {
+			return;
+		}
+
 		if (!hasSavedLanguage()) {
 			const browserLang =
 				typeof navigator !== "undefined" && navigator.language.startsWith("ru")
 					? "ru"
 					: "en";
-			setGlobalLanguage(browserLang);
-			setLanguageState(browserLang);
+			setLanguageInternal(browserLang);
+		} else {
+			languageSignal.value = getCurrentLanguage();
 		}
 
 		const unsubscribe = subscribeToLanguageChange(() => {
-			setLanguageState(getCurrentLanguage());
+			languageSignal.value = getCurrentLanguage();
 		});
 
 		return unsubscribe;
 	}, []);
 
-	const setLanguage = useCallback((nextLanguage: Language) => {
-		setGlobalLanguage(nextLanguage);
-		setLanguageState(nextLanguage);
-	}, []);
-
-	const toggleLanguage = useCallback(() => {
-		setLanguage(language === "en" ? "ru" : "en");
-	}, [language, setLanguage]);
-
-	const translate = useCallback(
-		(key: TranslationKey) => {
-			return getTranslation(key);
-		},
-		[language],
-	);
-
-	const value = useMemo<LanguageContextValue>(
-		() => ({
-			language,
-			setLanguage,
-			toggleLanguage,
-			t: translate,
-		}),
-		[language, setLanguage, toggleLanguage, translate],
-	);
-
-	return (
-		<LanguageContext.Provider value={value}>
-			{children}
-		</LanguageContext.Provider>
-	);
+	return <Fragment>{children}</Fragment>;
 }
 
 export function useLanguage(): LanguageContextValue {
-	const context = useContext(LanguageContext);
+	const language = languageSignal.value;
 
-	if (!context) {
-		throw new Error("useLanguage must be used within a LanguageProvider");
-	}
-
-	return context;
+	return useMemo(
+		() => ({
+			language,
+			setLanguage: setLanguageInternal,
+			toggleLanguage: toggleLanguageInternal,
+			t: translate,
+		}),
+		[language],
+	);
 }

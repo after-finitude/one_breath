@@ -1,12 +1,7 @@
+import { signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { createContext } from "preact";
-import {
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from "preact/hooks";
+import { Fragment } from "preact";
+import { useEffect, useMemo } from "preact/hooks";
 import {
 	clearPreferredTimezone,
 	getActiveTimezone,
@@ -20,54 +15,40 @@ type TimezoneContextValue = {
 	clearTimezone: () => void;
 };
 
-const TimezoneContext = createContext<TimezoneContextValue | undefined>(
-	undefined,
-);
+const timezoneSignal = signal<string | null>(getActiveTimezone());
+
+const setTimezoneInternal = (nextTimezone: string) => {
+	setPreferredTimezone(nextTimezone);
+	timezoneSignal.value = nextTimezone;
+};
+
+const clearTimezoneInternal = () => {
+	clearPreferredTimezone();
+	timezoneSignal.value = getActiveTimezone();
+};
 
 export function TimezoneProvider({
 	children,
 }: {
 	children: ComponentChildren;
 }) {
-	const [timezone, setTimezoneState] = useState<string | null>(null);
-
 	useEffect(() => {
 		const resolved = initializeTimezone();
-		setTimezoneState(resolved);
+		timezoneSignal.value = resolved;
 	}, []);
 
-	const setTimezone = useCallback((nextTimezone: string) => {
-		setPreferredTimezone(nextTimezone);
-		setTimezoneState(nextTimezone);
-	}, []);
-
-	const clearTimezonePreference = useCallback(() => {
-		clearPreferredTimezone();
-		setTimezoneState(getActiveTimezone());
-	}, []);
-
-	const value = useMemo<TimezoneContextValue>(
-		() => ({
-			timezone,
-			setTimezone,
-			clearTimezone: clearTimezonePreference,
-		}),
-		[timezone, setTimezone, clearTimezonePreference],
-	);
-
-	return (
-		<TimezoneContext.Provider value={value}>
-			{children}
-		</TimezoneContext.Provider>
-	);
+	return <Fragment>{children}</Fragment>;
 }
 
 export function useTimezone(): TimezoneContextValue {
-	const context = useContext(TimezoneContext);
+	const timezone = timezoneSignal.value;
 
-	if (!context) {
-		throw new Error("useTimezone must be used within a TimezoneProvider");
-	}
-
-	return context;
+	return useMemo(
+		() => ({
+			timezone,
+			setTimezone: setTimezoneInternal,
+			clearTimezone: clearTimezoneInternal,
+		}),
+		[timezone],
+	);
 }
